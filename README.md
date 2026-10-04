@@ -23,7 +23,7 @@ docker run --rm ghcr.io/thu-info-community/harmonyos-pipeline-docker/harmonyos-c
 
 Set the repository secret `HARMONY_CLT_URL` to a download URL for the same official archive. The workflow does not print the URL and verifies the fixed checksum. Run **Docker Build and Publish** manually, or push the `26.0.0.851` Git tag. The job builds and validates the image before publishing that version to GHCR; it does not overwrite `latest`.
 
-Make the GHCR package public so the application's GitHub Actions container can pull it without registry credentials. The application CI uses the path above by default; the repository variable `HARMONY_CI_IMAGE` can override the full image reference, including a digest.
+Set the GHCR package visibility to Internal for organization access. Under Manage Actions access, grant `thu-info-community/thu-info-app` read access; the application workflow authenticates with its `GITHUB_TOKEN` and `packages: read` permission. The application CI uses the path above by default; the repository variable `HARMONY_CI_IMAGE` can override the full image reference, including a digest.
 
 ## Tool locations
 
