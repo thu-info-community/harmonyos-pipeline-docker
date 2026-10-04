@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - '26.0.0.821'
+      - '26.0.0.851'
 
 jobs:
   build-and-publish:
@@ -21,17 +21,17 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$CLT_URL" ]; then
-            echo '::error::Set HARMONY_CLT_URL to the download URL for the official Linux 26.0.0.821 archive.'
+            echo '::error::Set HARMONY_CLT_URL to the download URL for the official Linux 26.0.0.851 archive.'
             exit 1
           fi
           curl --fail --location --silent --show-error --retry 3 \
-            --output commandline-tools-linux-x64-26.0.0.821.zip "$CLT_URL"
-          echo '58da7359019e9360a8bb82da0cd1d3b3b26fedc338379f257849f2162e3ac1fc  commandline-tools-linux-x64-26.0.0.821.zip' | sha256sum -c -
+            --output commandline-tools-linux-x64-26.0.0.851.zip "$CLT_URL"
+          echo 'ab604bd92721d5cbcafd154e6461d46b9f1b105e7b89eab04a9d046681198082  commandline-tools-linux-x64-26.0.0.851.zip' | sha256sum -c -
       - name: Build image
         shell: bash
         run: |
           set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}/harmonyos-ci-image:26.0.0.821"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}/harmonyos-ci-image:26.0.0.851"
           docker build --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" -t "$image" .
           docker run --rm "$image" bash -c 'node --version && java -version && ohpm --version'
           echo "HARMONY_IMAGE=$image" >> "$GITHUB_ENV"
