@@ -1,50 +1,30 @@
-# 使用 Ubuntu 20.04 作为基础镜像
-FROM ubuntu:20.04
+# syntax=docker/dockerfile:1.7
+FROM ubuntu:24.04
 
-# 设置环境变量以避免交互式安装提示
 ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl zstd zip unzip python3 openjdk-21-jdk \
+    build-essential git \
+    && rm -rf /var/lib/apt/lists/*
 
-# 安装必要的工具
-# curl: 部分构建脚本（如 prepare_ohos_sqlite_provider.sh 下载 SQLite amalgamation）依赖它，缺失会 exit 127。
-# zstd: GitHub Actions 的 actions/cache 条目指纹包含压缩工具；ubuntu runner 保存的是 zstd 压缩，
-#       容器里没有 zstd 时同 key 也会永远 miss（gzip-only 客户端），且不报错。
-RUN apt-get update && \
-    apt-get install -y \
-        wget \
-        curl \
-        zstd \
-        zip \
-        unzip \
-        python3 \
-        openjdk-17-jdk \
-        build-essential \
-        git \
-        && rm -rf /var/lib/apt/lists/*
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+ENV HARMONY_TOOLS_HOME=/opt/harmonyos-tools/command-line-tools
+ENV DEVECO_SDK_HOME=${HARMONY_TOOLS_HOME}/sdk
+ENV OHOS_BASE_SDK_HOME=${DEVECO_SDK_HOME}/default/openharmony
+ENV DEVECO_NODE_HOME=${HARMONY_TOOLS_HOME}/tool/node
+ENV NODE_HOME=${DEVECO_NODE_HOME}
+ENV PATH=${JAVA_HOME}/bin:${NODE_HOME}/bin:${HARMONY_TOOLS_HOME}/bin:${OHOS_BASE_SDK_HOME}/toolchains:${PATH}
 
-# 设置 JDK 17 环境变量
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-ENV PATH=$JAVA_HOME/bin:$PATH
+# Bind the official archive during extraction so it is not retained in an image layer.
+RUN --mount=type=bind,source=commandline-tools-linux-x64-26.0.0.821.zip,target=/tmp/clt.zip \
+    echo '58da7359019e9360a8bb82da0cd1d3b3b26fedc338379f257849f2162e3ac1fc  /tmp/clt.zip' | sha256sum -c - \
+    && mkdir -p /opt/harmonyos-tools \
+    && unzip -q /tmp/clt.zip -d /opt/harmonyos-tools \
+    && chmod +x ${HARMONY_TOOLS_HOME}/bin/* \
+    && printf '%s\n' '@ohos:registry=https://repo.harmonyos.com/npm/' > /root/.npmrc
 
-# 下载并安装 HarmonyOS CLI 工具
-RUN mkdir -p /opt/harmonyos-tools && \
-    wget -q -O /tmp/commandline-tools-linux.zip https://image.cdn.dog/commandline-tools-linux-x64-6.1.1.280.zip && \
-    echo "b9caf7b73c541b90e6c8f3c7c3de7f2bea9b35e41e80cd3525f2f759ebf16cf4  /tmp/commandline-tools-linux.zip" | sha256sum -c - || { echo "ERROR: SHA256 checksum verification failed for HarmonyOS CLI tools"; exit 1; } && \
-    unzip -q /tmp/commandline-tools-linux.zip -d /opt/harmonyos-tools/ && \
-    chmod -R +x /opt/harmonyos-tools/command-line-tools/bin && \
-    chmod -R +x /opt/harmonyos-tools/command-line-tools/sdk/default/openharmony/native/llvm/bin && \
-    rm /tmp/commandline-tools-linux.zip
+RUN node -e "const fs=require('node:fs'); const root=process.env.HARMONY_TOOLS_HOME; for(const variant of ['openharmony','hms']) { for(const component of ['ets','js','native','toolchains']) { const file=variant==='openharmony'?'oh-uni-package.json':'uni-package.json'; const meta=JSON.parse(fs.readFileSync(root+'/sdk/default/'+variant+'/'+component+'/'+file)); if(Number(meta.apiVersion)!==26 || meta.releaseType!=='Release') throw new Error('Expected release API 26 SDK'); }} for(const pkg of ['hvigor','hvigor-ohos-plugin']) { const meta=JSON.parse(fs.readFileSync(root+'/hvigor/'+pkg+'/package.json')); if(meta.version!=='6.26.4') throw new Error('Expected Hvigor 6.26.4'); }" \
+    && java -version && node --version && ohpm --version
 
-# 设置 HarmonyOS CLI 工具的环境变量
-ENV COMMANDLINE_TOOL_DIR=/opt/harmonyos-tools
-ENV PATH=$COMMANDLINE_TOOL_DIR/command-line-tools/bin:$PATH
-ENV HDC_HOME=$COMMANDLINE_TOOL_DIR/command-line-tools/sdk/default/openharmony/toolchains
-ENV PATH=$HDC_HOME:$PATH
-ENV OHOS_BASE_SDK_HOME=$COMMANDLINE_TOOL_DIR/command-line-tools/sdk/default/openharmony
-ENV OHOS_LLVM_HOME=$OHOS_BASE_SDK_HOME/native/llvm
-ENV PATH=$OHOS_LLVM_HOME/bin:$PATH
-
-# 设置工作目录
 WORKDIR /workspace
-
-# 设置默认命令
 CMD ["bash"]
